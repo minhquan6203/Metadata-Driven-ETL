@@ -13,8 +13,8 @@ setup(
         "pyyaml>=6.0",
     ],
     entry_points={
-        'console_scripts': [
-            'run-etl=scripts.run_demo:run_etl_pipeline',
+        "console_scripts": [
+            "run-etl=scripts.run_demo:run_etl_pipeline",
         ],
     },
-) 
+)
