@@ -1,0 +1,76 @@
+# Gold Layer Configuration
+# Defines data models for consumption layer
+
+models:
+  - model_id: "sales_summary"
+    description: "Daily sales summary by product category"
+    model_type: "sql"
+    sql_query: >
+      SELECT
+        s.transaction_date,
+        p.category,
+        COUNT(s.transaction_id) as transaction_count,
+        SUM(s.amount) as total_sales,
+        AVG(s.amount) as avg_sale_amount,
+        SUM(s.quantity) as total_quantity
+      FROM silver.sales_clean s
+      JOIN silver.products p ON s.product_id = p.product_id
+      WHERE s.transaction_date >= '${PROCESSING_DATE}'
+      GROUP BY s.transaction_date, p.category
+    target_table: "gold.daily_sales_by_category"
+    partition_by: "transaction_date"
+    refresh_type: "incremental"
+    primary_keys: ["transaction_date", "category"]
+    enabled: true
+    
+  - model_id: "customer_summary"
+    description: "Customer purchase summary"
+    model_type: "sql"
+    sql_query: >
+      SELECT
+        s.customer_id,
+        c.first_name,
+        c.last_name,
+        c.state,
+        COUNT(s.transaction_id) as total_transactions,
+        SUM(s.amount) as total_spend,
+        MAX(s.transaction_date) as last_purchase_date
+      FROM silver.sales_clean s
+      JOIN silver.customers c ON s.customer_id = c.customer_id
+      GROUP BY s.customer_id, c.first_name, c.last_name, c.state
+    target_table: "gold.customer_purchase_summary"
+    refresh_type: "full"
+    primary_keys: ["customer_id"]
+    enabled: true
+    
+  - model_id: "product_performance"
+    description: "Product sales performance metrics"
+    model_type: "sql"
+    sql_query: >
+      SELECT
+        p.product_id,
+        p.product_name,
+        p.category,
+        COUNT(s.transaction_id) as total_sales,
+        SUM(s.quantity) as total_quantity,
+        SUM(s.amount) as total_revenue,
+        SUM(s.amount - (p.cost * s.quantity)) as total_profit,
+        AVG(s.amount / s.quantity) as avg_unit_price
+      FROM silver.sales_clean s
+      JOIN silver.products p ON s.product_id = p.product_id
+      GROUP BY p.product_id, p.product_name, p.category
+    target_table: "gold.product_performance"
+    refresh_type: "full"
+    primary_keys: ["product_id"]
+    enabled: true
+
+# Global settings
+default:
+  spark_conf:
+    "spark.sql.shuffle.partitions": "200"
+    "spark.databricks.delta.autoCompact.enabled": "true"
+  base_path: "/mnt/lakehouse/gold/"
+  documentation_table: "metadata.data_dictionary"
+  refresh_window_days: 7
+  default_cluster_size: "medium"
+  timeout_seconds: 3600 

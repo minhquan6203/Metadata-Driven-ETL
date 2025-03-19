@@ -1,0 +1,105 @@
+# Silver Layer Configuration
+# Defines transformation and data quality rules for silver layer
+
+transformations:
+  - transform_id: "customer_silver"
+    description: "Transform raw customer data to silver layer"
+    source_table: "bronze.customers"
+    target_table: "silver.customers"
+    transformation_type: "sql"
+    sql_query: >
+      SELECT
+        c.customer_id,
+        c.first_name,
+        c.last_name,
+        c.email,
+        c.phone,
+        c.address,
+        c.city,
+        c.state,
+        c.zip_code,
+        c.registration_date,
+        CURRENT_TIMESTAMP() as silver_insert_timestamp
+      FROM bronze.customers c
+    partition_by: "state"
+    data_quality:
+      - rule_name: "customer_id_check"
+        rule_type: "not_null"
+        column: "customer_id"
+        action_on_failure: "reject"
+      - rule_name: "valid_email"
+        rule_type: "regex"
+        column: "email"
+        pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+        action_on_failure: "tag"
+    enabled: true
+    
+  - transform_id: "product_silver"
+    description: "Transform raw product data to silver layer"
+    source_table: "bronze.products"
+    target_table: "silver.products"
+    transformation_type: "sql"
+    sql_query: >
+      SELECT
+        p.product_id,
+        p.product_name,
+        p.category,
+        p.price,
+        p.cost,
+        p.supplier_id,
+        CURRENT_TIMESTAMP() as silver_insert_timestamp
+      FROM bronze.products p
+    partition_by: "category"
+    data_quality:
+      - rule_name: "product_id_check"
+        rule_type: "not_null"
+        column: "product_id"
+        action_on_failure: "reject"
+      - rule_name: "price_check"
+        rule_type: "expression"
+        expression: "price > 0 AND price > cost"
+        action_on_failure: "tag"
+    enabled: true
+    
+  - transform_id: "sales_silver"
+    description: "Transform raw sales data to silver layer"
+    source_table: "bronze.sales_transactions"
+    target_table: "silver.sales_clean"
+    transformation_type: "sql"
+    transaction_date_column: "transaction_date"
+    sql_query: >
+      SELECT
+        t.transaction_id,
+        t.customer_id,
+        t.product_id,
+        t.transaction_date,
+        t.amount,
+        t.quantity,
+        t.store_id,
+        CURRENT_TIMESTAMP() as silver_insert_timestamp
+      FROM bronze.sales_transactions t
+      WHERE t.transaction_date >= '${PROCESSING_DATE}'
+    partition_by: "transaction_date"
+    data_quality:
+      - rule_name: "sales_amount_check"
+        rule_type: "not_null"
+        column: "amount"
+        action_on_failure: "filter"
+      # Commenting out this rule to avoid circular dependency
+      # - rule_name: "valid_customer"
+      #   rule_type: "referential_integrity"
+      #   column: "customer_id"
+      #   ref_table: "silver.customers"
+      #   ref_column: "customer_id"
+      #   action_on_failure: "tag"
+    enabled: true
+
+# Global settings
+default:
+  spark_conf:
+    "spark.sql.shuffle.partitions": "200"
+    "spark.databricks.delta.autoCompact.enabled": "true"
+  base_path: "/mnt/lakehouse/silver/"
+  quality_metrics_table: "metadata.data_quality_metrics"
+  max_retry: 3
+  timeout_seconds: 3600 

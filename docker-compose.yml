@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  etl-framework:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: metadata-etl
+    volumes:
+      - ./:/app
+      - ./demo_data:/app/demo_data
+    environment:
+      - PYTHONUNBUFFERED=1
+    # No command here so it will use the CMD from Dockerfile (tail -f /dev/null)
+
+# Removed the named volumes section since we're using bind mounts 

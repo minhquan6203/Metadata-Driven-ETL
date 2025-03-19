@@ -1,0 +1,50 @@
+# Bronze Layer Configuration
+# Defines source systems for raw data ingestion
+
+sources:
+  - source_id: "sales_data"
+    description: "Sales transaction data from operational systems"
+    source_type: "file"
+    source_path: "/app/demo_data/raw/transactions"
+    file_format: "parquet"
+    format: "delta"
+    target_table: "bronze.sales_transactions"
+    extract_strategy: "full"
+    frequency: "daily"
+    enabled: true
+    
+  - source_id: "customer_data"
+    description: "Customer master data"
+    source_type: "file"
+    source_path: "/app/demo_data/raw/customers"
+    file_format: "csv"
+    options:
+      header: "true"
+      delimiter: ","
+      inferSchema: "true"
+    format: "delta"
+    target_table: "bronze.customers"
+    extract_strategy: "full"
+    frequency: "daily"
+    enabled: true
+    
+  - source_id: "product_catalog"
+    description: "Product catalog data"
+    source_type: "file"
+    source_path: "/app/demo_data/raw/products"
+    file_format: "json"
+    format: "delta"
+    target_table: "bronze.products"
+    extract_strategy: "full"
+    frequency: "daily"
+    enabled: true
+
+# Global settings
+default:
+  spark_conf:
+    "spark.sql.shuffle.partitions": "200"
+    "spark.databricks.delta.autoCompact.enabled": "true"
+  base_path: "/app/demo_data/bronze/"
+  archive_path: "/app/demo_data/archive/bronze/"
+  max_retry: 3
+  timeout_seconds: 3600 
